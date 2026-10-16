@@ -1,1 +1,818 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Figur</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(#8ed0ff, #dff7ff);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        .scene {
+            position: relative;
+            width: 430px;
+            height: min(640px, 100vh);
+        }
+
+        .sky {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(#7ec9ff 0%, #dff6ff 100%);
+            border-radius: 18px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .sun {
+            position: absolute;
+            top: 86px;
+            right: 38px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #ffd75c;
+            box-shadow: 0 0 30px rgba(255, 215, 92, 0.9);
+        }
+
+        .ground {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 220px;
+            overflow: visible;
+            background: linear-gradient(#6bbd49, #4f8d2f);
+            border-top: 6px solid #8ae56a;
+            z-index: 1;
+        }
+
+        .ground.at-goal {
+            background: repeating-conic-gradient(#fff 0% 25%, #000 0% 50%) 0 0 / 36px 36px;
+            border-top-color: #000;
+        }
+
+        .win-sign {
+            position: absolute;
+            top: 76px;
+            left: 50%;
+            z-index: 11;
+            display: grid;
+            width: 180px;
+            height: 82px;
+            place-items: center;
+            border: 6px solid #542b12;
+            background: linear-gradient(#d9964b, #a85d26);
+            box-shadow: inset 0 0 0 3px #efb66e, 0 8px 0 rgba(0, 0, 0, 0.25);
+            color: #fff4c2;
+            font-size: 42px;
+            font-weight: 900;
+            text-shadow: 3px 3px #542b12;
+            transform: translate(-50%, -180%);
+            transition: transform 700ms cubic-bezier(0.2, 0.8, 0.25, 1.2);
+            pointer-events: none;
+        }
+
+        .win-sign.visible {
+            transform: translate(-50%, 0);
+        }
+
+        .win-sign.lose {
+            border-color: #681d1d;
+            background: linear-gradient(#f06a5d, #a92828);
+            box-shadow: inset 0 0 0 3px #ffb08a, 0 8px 0 rgba(0, 0, 0, 0.25);
+            color: #fff;
+            text-shadow: 3px 3px #681d1d;
+        }
+
+        .confetti-burst {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            z-index: 8;
+            pointer-events: none;
+        }
+
+        .confetti-piece {
+            position: absolute;
+            width: 14px;
+            height: 20px;
+            background: var(--confetti-color);
+            animation: confetti-pop 1500ms ease-in forwards;
+        }
+
+        @keyframes confetti-pop {
+            from {
+                opacity: 1;
+                transform: translate(0, 0) rotate(0deg) scale(0.5);
+            }
+            to {
+                opacity: 0;
+                transform: translate(var(--confetti-x), var(--confetti-y)) rotate(var(--confetti-rotation)) scale(1);
+            }
+        }
+
+        .ground-track {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            transition: transform 0.08s linear;
+        }
+
+        .goal-flag {
+            position: absolute;
+            right: 36px;
+            bottom: 92px;
+            width: 70px;
+            height: 90px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .goal-flag.visible {
+            opacity: 1;
+        }
+
+        .goal-flag .pole {
+            position: absolute;
+            left: 26px;
+            bottom: 0;
+            width: 8px;
+            height: 74px;
+            background: #5a3a1d;
+            border: 3px solid #000;
+            border-bottom: none;
+        }
+
+        .goal-flag .banner {
+            position: absolute;
+            left: 34px;
+            top: 8px;
+            width: 34px;
+            height: 22px;
+            background: #ff4d4d;
+            border: 4px solid #000;
+            clip-path: polygon(0 0, 100% 50%, 0 100%);
+        }
+
+        .grass-block {
+            position: relative;
+            flex: 0 0 70px;
+            width: 70px;
+            height: 70px;
+            background: #5abf45;
+            border: 4px solid #2f6d2d;
+            box-shadow: inset 0 8px 0 rgba(255, 255, 255, 0.15);
+        }
+
+        .grass-block::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -16px;
+            height: 18px;
+            background: linear-gradient(#8ce86c, #4ea43c);
+            clip-path: polygon(0 100%, 8% 42%, 18% 70%, 31% 24%, 46% 70%, 62% 20%, 73% 70%, 86% 34%, 100% 100%);
+        }
+
+        .step {
+            position: absolute;
+            bottom: 0;
+            height: 20px;
+            background: linear-gradient(#7ddc5d, #4daa3e);
+            border: 5px solid #2f6d2d;
+            box-shadow: inset 0 8px 0 rgba(255, 255, 255, 0.18), 0 2px 0 rgba(0, 0, 0, 0.15);
+            z-index: 2;
+            display: block;
+        }
+
+        .shrub {
+            position: absolute;
+            bottom: 0;
+            width: 90px;
+            height: 88px;
+            background: linear-gradient(#66d953, #289c3d);
+            border: 5px solid #1f6328;
+            border-radius: 48% 52% 42% 58% / 54% 48% 52% 46%;
+            box-shadow: inset 0 8px 0 rgba(255,255,255,0.18), 0 8px 0 rgba(64, 119, 59, 0.35);
+            z-index: 2;
+        }
+
+        .shrub::before,
+        .shrub::after {
+            content: "";
+            position: absolute;
+            width: 58%;
+            height: 58%;
+            background: linear-gradient(#70ea58, #2fa14a);
+            border: 5px solid #1f6328;
+            border-radius: 50%;
+            top: -18px;
+        }
+
+        .shrub::before {
+            left: -6px;
+        }
+
+        .shrub::after {
+            right: -6px;
+        }
+
+        .lava {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 2400px;
+            height: 42px;
+            background: linear-gradient(#ff8c1a, #ff3b00 30%, #8c1a00 100%);
+            border-top: 6px solid #ffda66;
+            box-shadow: inset 0 8px 0 rgba(255, 255, 255, 0.15), 0 -8px 20px rgba(255, 90, 0, 0.35);
+            z-index: 0;
+        }
+
+        .minecraft-figure {
+            position: absolute;
+            left: 50%;
+            bottom: 220px;
+            width: 90px;
+            height: 150px;
+            transform: translateX(-50%);
+            animation: none;
+            z-index: 5;
+        }
+
+        .minecraft-figure.walking .arm.left {
+            animation: arm-left-walk 0.25s ease-in-out infinite alternate;
+        }
+
+        .minecraft-figure.walking .arm.right {
+            animation: arm-right-walk 0.25s ease-in-out infinite alternate;
+        }
+
+        .minecraft-figure.walking .leg.left {
+            animation: leg-left-walk 0.25s ease-in-out infinite alternate;
+        }
+
+        .minecraft-figure.walking .leg.right {
+            animation: leg-right-walk 0.25s ease-in-out infinite alternate;
+        }
+
+        .minecraft-figure.walking .body {
+            animation: body-bob 0.25s ease-in-out infinite alternate;
+        }
+
+        .jump-button {
+            position: absolute;
+            right: 24px;
+            bottom: 120px;
+            padding: 12px 20px;
+            border: 4px solid #000;
+            border-radius: 12px;
+            background: #f2c14e;
+            color: #2a2a2a;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #9a6d00;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            z-index: 10;
+        }
+
+        .health-bar {
+            position: absolute;
+            top: 18px;
+            right: 16px;
+            display: flex;
+            gap: 2px;
+            padding: 7px 8px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 3px solid #000;
+            border-radius: 8px;
+            z-index: 10;
+        }
+
+        .health-heart {
+            color: #ff4054;
+            font-size: 19px;
+            line-height: 1;
+            text-shadow: 1px 2px #7d1624;
+        }
+
+        .health-heart.lost {
+            color: #555;
+            text-shadow: none;
+        }
+
+        .jump-button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #9a6d00;
+        }
+
+        .restart-button {
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            padding: 14px 22px;
+            border: 5px solid #000;
+            border-radius: 14px;
+            background: linear-gradient(#ff8a8a, #e35a5a);
+            color: #fff;
+            font-size: 20px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 8px 0 #8f2f2f;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            z-index: 10;
+        }
+
+        .restart-button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #9d3d3d;
+        }
+
+        .head {
+            position: absolute;
+            left: 22px;
+            top: 0;
+            width: 46px;
+            height: 44px;
+            background: #f4b98a;
+            border: 4px solid #000;
+        }
+
+        .hair {
+            position: absolute;
+            left: 0;
+            top: -4px;
+            width: 100%;
+            height: 12px;
+            background: #563b28;
+            border: 4px solid #000;
+            border-bottom: none;
+        }
+
+        .eyes {
+            position: absolute;
+            top: 16px;
+            left: 8px;
+            width: 26px;
+            height: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .eye {
+            width: 7px;
+            height: 7px;
+            background: #1f1f1f;
+            border-radius: 2px;
+        }
+
+        .body {
+            position: absolute;
+            left: 18px;
+            top: 44px;
+            width: 54px;
+            height: 48px;
+            background: #26b4df;
+            border: 4px solid #000;
+        }
+
+        .arm {
+            position: absolute;
+            top: 48px;
+            width: 16px;
+            height: 46px;
+            background: #f4b98a;
+            border: 4px solid #000;
+            transform-origin: top center;
+        }
+
+        .arm.left {
+            left: 0;
+        }
+
+        .arm.right {
+            right: 0;
+        }
+
+        .leg {
+            position: absolute;
+            top: 90px;
+            width: 18px;
+            height: 42px;
+            background: #6f53b9;
+            border: 4px solid #000;
+            transform-origin: top center;
+        }
+
+        .leg.left {
+            left: 26px;
+        }
+
+        .leg.right {
+            right: 26px;
+        }
+
+        @keyframes arm-left-walk {
+            0% { transform: rotate(30deg); }
+            100% { transform: rotate(-30deg); }
+        }
+
+        @keyframes arm-right-walk {
+            0% { transform: rotate(-30deg); }
+            100% { transform: rotate(30deg); }
+        }
+
+        @keyframes leg-left-walk {
+            0% { transform: rotate(-30deg); }
+            100% { transform: rotate(30deg); }
+        }
+
+        @keyframes leg-right-walk {
+            0% { transform: rotate(30deg); }
+            100% { transform: rotate(-30deg); }
+        }
+
+        @keyframes body-bob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="scene">
+        <div class="sky">
+            <div class="sun"></div>
+        </div>
+
+        <div class="ground">
+            <div class="ground-track" id="groundTrack"></div>
+        </div>
+
+        <div class="goal-flag" id="goalFlag" aria-hidden="true">
+            <div class="pole"></div>
+            <div class="banner"></div>
+        </div>
+
+        <div class="win-sign" id="winSign" role="status" aria-live="polite">WIN</div>
+
+        <div class="health-bar" role="img" aria-label="Leben: 10 von 10">
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+            <span class="health-heart" aria-hidden="true">&#9829;</span>
+        </div>
+
+        <div class="minecraft-figure" id="player">
+            <div class="head">
+                <div class="hair"></div>
+                <div class="eyes">
+                    <div class="eye"></div>
+                    <div class="eye"></div>
+                </div>
+            </div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+        </div>
+
+        <button class="restart-button" id="restartButton" type="button">NEUSTART</button>
+        <button class="jump-button" id="jumpButton" type="button">SPRINGEN</button>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const jumpButton = document.getElementById('jumpButton');
+        const restartButton = document.getElementById('restartButton');
+        const groundTrack = document.getElementById('groundTrack');
+        const ground = document.querySelector('.ground');
+        const healthBar = document.querySelector('.health-bar');
+        const healthHearts = Array.from(healthBar.querySelectorAll('.health-heart'));
+        const goalFlag = document.getElementById('goalFlag');
+        const winSign = document.getElementById('winSign');
+        const lava = document.createElement('div');
+        lava.className = 'lava';
+
+        let x = 0;
+        let y = 0;
+        let velocityY = 0;
+        let grounded = true;
+        let xVelocity = 0;
+        let direction = 1;
+        let health = healthHearts.length;
+        let lastHitShrub = null;
+        let celebratedGoal = false;
+        let gameOver = false;
+
+        const gravity = 0.75;
+        const jumpPower = 18;
+        const groundOffset = 220;
+        const moveSpeed = 4;
+        const playerHalfWidth = 27;
+        const playerFootOffset = 18;
+        const shrubWidth = 80;
+        const shrubHeight = 86;
+        const shrubPlatformHeight = shrubHeight + 6;
+        const worldGoalX = 1840;
+        const maxX = worldGoalX - 40;
+
+        const shrubPositions = [
+            { x: 80 }, { x: 380 }, { x: 680 }, { x: 980 }, { x: 1280 }, { x: 1580 }
+        ];
+
+        const keys = {};
+
+        function buildSteps() {
+            const lavaTrack = document.createElement('div');
+            lavaTrack.className = 'lava';
+            lavaTrack.style.left = '0px';
+            lavaTrack.style.bottom = '0px';
+            lavaTrack.style.width = '2400px';
+            groundTrack.appendChild(lavaTrack);
+
+            shrubPositions.forEach((shrub) => {
+                const div = document.createElement('div');
+                div.className = 'shrub';
+                div.style.left = shrub.x + 'px';
+                div.style.width = shrubWidth + 'px';
+                div.style.height = shrubHeight + 'px';
+                div.style.bottom = '214px';
+                groundTrack.appendChild(div);
+            });
+
+            groundTrack.appendChild(goalFlag);
+            goalFlag.style.left = worldGoalX + 'px';
+            goalFlag.style.bottom = '88px';
+            goalFlag.classList.remove('visible');
+        }
+
+        function jump() {
+            if (!grounded) return;
+            velocityY = jumpPower;
+            grounded = false;
+        }
+
+        function resetGame(resetHealth = true) {
+            x = 0;
+            y = 0;
+            velocityY = 0;
+            grounded = true;
+            xVelocity = 0;
+            direction = 1;
+            lastHitShrub = null;
+            celebratedGoal = false;
+            gameOver = false;
+            if (resetHealth) {
+                health = healthHearts.length;
+                renderHealth();
+            }
+            keys.ArrowLeft = false;
+            keys.ArrowRight = false;
+            keys.KeyA = false;
+            keys.KeyD = false;
+            player.classList.remove('walking');
+            ground.classList.remove('at-goal');
+            goalFlag.classList.remove('visible');
+            winSign.textContent = 'WIN';
+            winSign.classList.remove('lose');
+            winSign.classList.remove('visible');
+            player.style.left = '50%';
+            player.style.bottom = (groundOffset + y) + 'px';
+            groundTrack.style.transform = 'translateX(0px)';
+            setDirection(direction);
+        }
+
+        function renderHealth() {
+            healthHearts.forEach((heart, index) => {
+                heart.classList.toggle('lost', index >= health);
+            });
+            healthBar.setAttribute('aria-label', `Leben: ${health} von ${healthHearts.length}`);
+        }
+
+        function takeDamage(amount) {
+            health = Math.max(0, health - amount);
+            renderHealth();
+        }
+
+        function showLose() {
+            gameOver = true;
+            player.classList.remove('walking');
+            winSign.textContent = 'LOSE';
+            winSign.classList.add('lose', 'visible');
+        }
+
+        function createConfettiBurst() {
+            const burst = document.createElement('div');
+            burst.className = 'confetti-burst';
+
+            const colors = ['#ff4054', '#ffd75c', '#26b4df', '#70ea58', '#9b5de5', '#ff8c1a'];
+            for (let index = 0; index < 48; index += 1) {
+                const piece = document.createElement('span');
+                piece.className = 'confetti-piece';
+                piece.style.setProperty('--confetti-color', colors[index % colors.length]);
+                piece.style.setProperty('--confetti-x', `${Math.random() * 440 - 220}px`);
+                piece.style.setProperty('--confetti-y', `${420 + Math.random() * 180}px`);
+                piece.style.setProperty('--confetti-rotation', `${Math.random() * 720 - 360}deg`);
+                burst.appendChild(piece);
+            }
+
+            document.querySelector('.scene').appendChild(burst);
+            window.setTimeout(() => burst.remove(), 1600);
+        }
+
+        function setDirection(newDirection) {
+            direction = newDirection;
+            player.style.transform = `translateX(-50%) scaleX(${newDirection})`;
+        }
+
+        function getSurfaceHeightAtPlayerX(positionX = x) {
+            const standingShrub = shrubPositions.find((shrub) => {
+                return positionX + playerHalfWidth > shrub.x
+                    && positionX - playerHalfWidth < shrub.x + shrubWidth;
+            });
+            return standingShrub ? shrubPlatformHeight - playerFootOffset : 0;
+        }
+
+        function getStandingStep() {
+            return null;
+        }
+
+        function isPlayerOnSurface() {
+            return y <= getSurfaceHeightAtPlayerX();
+        }
+
+        function getBlockingShrub(positionX) {
+            return shrubPositions.find((shrub) => {
+                const playerIsInsideShrub = positionX > shrub.x
+                    && positionX < shrub.x + shrubWidth;
+                return playerIsInsideShrub && y + playerFootOffset < shrubPlatformHeight;
+            });
+        }
+
+        function getStepContact() {
+            return null;
+        }
+
+        function handleMovement() {
+            const left = keys.ArrowLeft || keys.KeyA;
+            const right = keys.ArrowRight || keys.KeyD;
+            const minX = 0;
+
+            if (left && !right) {
+                xVelocity = -moveSpeed;
+                setDirection(-1);
+                player.classList.add('walking');
+            } else if (right && !left) {
+                xVelocity = moveSpeed;
+                setDirection(1);
+                player.classList.add('walking');
+            } else {
+                xVelocity = 0;
+                player.classList.remove('walking');
+            }
+
+            if (x >= maxX) {
+                x = maxX;
+                xVelocity = 0;
+                goalFlag.classList.add('visible');
+                player.classList.remove('walking');
+                return;
+            }
+
+            if (x <= minX) {
+                x = minX;
+            }
+
+            const nextX = Math.min(Math.max(x + xVelocity, minX), maxX);
+            const blockingShrub = getBlockingShrub(nextX);
+
+            if (blockingShrub) {
+                if (blockingShrub !== lastHitShrub) {
+                    takeDamage(2);
+                    lastHitShrub = blockingShrub;
+                }
+                if (xVelocity < 0 || (xVelocity === 0 && x > blockingShrub.x + shrubWidth / 2)) {
+                    x = blockingShrub.x + shrubWidth;
+                } else {
+                    x = blockingShrub.x;
+                }
+                xVelocity = 0;
+                player.classList.remove('walking');
+            } else {
+                lastHitShrub = null;
+                x = nextX;
+            }
+
+            if (health === 0) {
+                showLose();
+                return;
+            }
+
+            if (x >= maxX - 5) {
+                ground.classList.add('at-goal');
+                goalFlag.classList.add('visible');
+                winSign.classList.add('visible');
+            } else {
+                ground.classList.remove('at-goal');
+                goalFlag.classList.remove('visible');
+                winSign.classList.remove('visible');
+            }
+
+            if (grounded && velocityY <= 0 && !isPlayerOnSurface()) {
+                grounded = false;
+                velocityY = 0;
+            }
+
+            const viewportCenterX = 215;
+            const cameraX = x - viewportCenterX;
+            const worldOffset = -cameraX * 1.55;
+            groundTrack.style.transform = `translateX(${worldOffset}px)`;
+            player.style.left = `${viewportCenterX}px`;
+        }
+
+        document.addEventListener('keydown', (event) => {
+            keys[event.code] = true;
+
+            if (event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW') {
+                event.preventDefault();
+                jump();
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            keys[event.code] = false;
+        });
+
+        function animate() {
+            if (gameOver) {
+                requestAnimationFrame(animate);
+                return;
+            }
+
+            handleMovement();
+            if (gameOver) {
+                requestAnimationFrame(animate);
+                return;
+            }
+
+            if (!grounded) {
+                velocityY -= gravity;
+                const nextY = y + velocityY;
+                const surfaceHeight = getSurfaceHeightAtPlayerX();
+
+                if (velocityY <= 0 && y >= surfaceHeight && nextY <= surfaceHeight) {
+                    y = surfaceHeight;
+                    velocityY = 0;
+                    grounded = true;
+                } else {
+                    y = nextY;
+                }
+            }
+
+            if (y <= -40) {
+                showLose();
+                requestAnimationFrame(animate);
+                return;
+            }
+
+            if (grounded && ground.classList.contains('at-goal') && !celebratedGoal) {
+                celebratedGoal = true;
+                createConfettiBurst();
+            }
+
+            player.style.bottom = (groundOffset + y) + 'px';
+            requestAnimationFrame(animate);
+        }
+
+        jumpButton.addEventListener('click', jump);
+        restartButton.addEventListener('click', resetGame);
+        buildSteps();
+        renderHealth();
+        setDirection(1);
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
